@@ -3,6 +3,9 @@
 
 #include <QMainWindow>
 
+#include "elemer.h"
+
+
 namespace Ui {
 class MainWindow;
 }
@@ -28,6 +31,8 @@ private slots:
 
 private:
     Ui::MainWindow *ui;
+
+    ELEMER test;
 };
 
 #endif // MAINWINDOW_H

@@ -4,7 +4,7 @@
 #
 #-------------------------------------------------
 
-QT       += core gui
+QT       += core gui serialport
 
 greaterThan(QT_MAJOR_VERSION, 4): QT += widgets
 
@@ -13,16 +13,16 @@ TEMPLATE = app
 
 
 SOURCES += main.cpp\
-        mainwindow.cpp \
-    man.cpp \
-    agilent.cpp \
-    elemer.cpp \
-    trans.cpp
+		mainwindow.cpp \
+	man.cpp \
+	agilent.cpp \
+	elemer.cpp \
+	trans.cpp
 
 HEADERS  += mainwindow.h \
-    man.h \
-    agilent.h \
-    elemer.h \
-    trans.h
+	man.h \
+	agilent.h \
+	elemer.h \
+	trans.h
 
 FORMS    += mainwindow.ui
