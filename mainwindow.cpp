@@ -12,6 +12,7 @@ MainWindow::MainWindow(QWidget* parent)
         ui->comboBoxPort_2->addItem(info.portName());
     }
     readSettings();
+
     /*
  Dim I As Byte
     Dim S As String
@@ -197,72 +198,24 @@ void MainWindow::on_checkBox_clicked(bool checked)
 */
 }
 
-void MainWindow::on_pushButtonLoad_clicked()
-{
-}
-
 void MainWindow::on_pushButtonLoad_clicked(bool checked)
 {
+    qDebug() << "SetLoadEnabled" << man.SetLoadEnabled(QList<bool>() << checked << checked << checked << checked);
 }
 
 void MainWindow::on_pushButtonPing_clicked()
 {
     qDebug() << "Ping" << man.Ping(ui->comboBoxPort_1->currentText());
-    qDebug() << "GetValues" << man.GetValues();
-    qDebug() << "SetLoad" << man.SetLoad(QList<float>() << 0.123 << 0.123 << 0.123 << 0.123);
-    //    test.setPortName("COM1");
-    //    if (test.open(QSerialPort::ReadWrite)) {
-    //        QString Parcel;
-    //        for (int i = 0; i < 4; ++i) {
-    //            Parcel = QString(":%1;1;0;").arg(i + 1);
-    //            Parcel = Parcel + test.ControlSum(Parcel) + '\r';
-    //            qDebug() << Parcel.toLocal8Bit() << i;
-    //            test.write(Parcel.toLocal8Bit());
-    //            test.waitForReadyRead(1000);
-    //            qDebug() << test.readAll() << i;
-    //        }
-    //        test.close();
-    //    }
 
-    /*
- Dim I As Integer
-    Dim S As String
+    QList<double> val = man.GetValues(1);
 
-    If Me.cbxPort.Enabled = True Then
-        If Mcp.OpenPort = True Then
-            For I = 1 To 4
-                S = ":" & I & ";254;"
-                S = WriteRead2(S)
-                If InStr(1, S, "Ver 5.19", vbTextCompare) = 0 Then
-                    Call Mcp.ClosePort
-                    Call MsgBox("Ìàí ¹" & I & "íå îòâå÷àåò", vbCritical)
-                    Exit Sub
-                End If
-            Next
-            Me.btnSetLoHiCurrent.Enabled = True
-            Me.btnWrite.Enabled = True
-            Me.MeasCurrent.Enabled = True
-            Me.cbxTrans.Enabled = False
-            Me.cbxPort.Enabled = False
-            Me.cbxPortA.Enabled = False
-            Me.CheckBox1.Enabled = False
-            Call cbxTrans_Change
-            Me.btnPort.Caption = "Çàêðûòü ïîðò"
-            Call MAIN.Start
-        End If
-    Else
-        Me.btnSetLoHiCurrent.Enabled = False
-        Me.btnWrite.Enabled = False
-        Me.MeasCurrent.Enabled = False
-        Me.cbxTrans.Enabled = True
+    ui->lineEditU_1->setText(QString().setNum(val[0]).replace('.', ','));
+    ui->lineEditU_2->setText(QString().setNum(val[1]).replace('.', ','));
+    ui->lineEditU_3->setText(QString().setNum(val[2]).replace('.', ','));
+    ui->lineEditU_4->setText(QString().setNum(val[3]).replace('.', ','));
 
-        Call Mcp.ClosePort
-        Me.cbxPort.Enabled = True
-        Call CheckBox1_Click
-        Me.CheckBox1.Enabled = True
-        Me.btnPort.Caption = "Óñòàíîâèòü ñâÿçü"
-    End If
-*/
+    qDebug() << "SetLoad" << man.SetLoad(QList<float>() << 0.123f << 0.123f << 0.123f << 0.123f);
+
 }
 
 void MainWindow::on_pushButtonWrite_clicked()

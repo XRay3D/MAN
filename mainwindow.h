@@ -27,7 +27,6 @@ private slots:
     void on_comboBox_3_currentIndexChanged(int index);
     void on_checkBox_clicked(bool checked);
 
-    void on_pushButtonLoad_clicked();
     void on_pushButtonLoad_clicked(bool checked);
     void on_pushButtonPing_clicked();
     void on_pushButtonWrite_clicked();
