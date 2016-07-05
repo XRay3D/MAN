@@ -5,79 +5,18 @@
 #include <QtSerialPort>
 
 #include "elemer.h"
-
 #include "qt_windows.h"
 
 class MAN : public QSerialPort, public ELEMER {
     Q_OBJECT
 public:
-    explicit MAN(QObject* parent = 0)
-        : QSerialPort(parent)
-    {
-        setFlowControl(QSerialPort::NoFlowControl);
-        setParity(QSerialPort::NoParity);
-        setBaudRate(19200);
-        connect(this, &MAN::PingSignal, this, &MAN::PingSlot);
-        ::QueryPerformanceFrequency((LARGE_INTEGER*)&T3);
-        T1 = T3;
-    }
+    explicit MAN(QObject* parent = 0);
 
-    double T1;
-    long long T2;
-    long long T3;
+    bool Ping(const QString& portName);
+    void PingSlot(const QString& portName);
 
-    bool Ping(const QString& portName)
-    {
-        mutex.lock();
-        emit PingSignal(portName);
-        if (mutex.tryLock(1000)) {
-            mutex.unlock();
-            return true;
-        }
-        mutex.unlock();
-        return false;
-    }
-
-    void start()
-    {
-        ::QueryPerformanceCounter((LARGE_INTEGER*)&T2);
-    }
-    void stop()
-    {
-        ::QueryPerformanceCounter((LARGE_INTEGER*)&T3);
-        qDebug() << ((T3 - T2) / T1);
-    }
-
-    void PingSlot(const QString& portName)
-    {
-        QString Parcel;
-        QStringList Array;
-        int counter = 5;
-        start();
-        setPortName(portName);
-        if (open(QSerialPort::ReadWrite)) {
-            qDebug() << "open";
-            for (int i = 0; i < 4; ++i) {
-                Parcel = QString(":%1;254;").arg(i + 1);
-                Parcel = Parcel + ControlSum(Parcel) + '\r';
-                write(Parcel.toLocal8Bit());
-                waitForReadyRead(100);
-                Parcel = readAll();
-                while (!Parcel.count('\r') && counter--) {
-                    waitForReadyRead(10);
-                    Parcel.append(readAll());
-                }
-                if (!Check(Parcel, Array)) {
-                    close();
-                    return;
-                }
-                waitForReadyRead(50);
-            }
-            close();
-            mutex.unlock();
-        }
-        stop();
-    }
+    QList<double> GetValues();
+    void GetValuesSlot(QList<double>& data);
 
     //    Private Function WriteRead(ByVal H As Long, ByRef S As String, Optional ByVal T As Single = 1) As String
     //        Dim Data() As Byte
@@ -259,12 +198,27 @@ End Function
 */
 
 signals:
-    void PingSignal(const QString& portName);
+    void PingSignal(const QString&);
+    void GetValuesSignal(QList<double>&);
 
 public slots:
 
 private:
     QMutex mutex;
+
+    double T1;
+    long long T2;
+    long long T3;
+
+    void start()
+    {
+        ::QueryPerformanceCounter((LARGE_INTEGER*)&T2);
+    }
+    void stop()
+    {
+        ::QueryPerformanceCounter((LARGE_INTEGER*)&T3);
+        qDebug() << ((T3 - T2) / T1);
+    }
 };
 
 #endif // MAN_H

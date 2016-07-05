@@ -208,6 +208,7 @@ void MainWindow::on_pushButtonLoad_clicked(bool checked)
 void MainWindow::on_pushButtonPing_clicked()
 {
     qDebug() << "Ping" << man.Ping(ui->comboBoxPort_1->currentText());
+    qDebug() << "GetValues" << man.GetValues();
     //    test.setPortName("COM1");
     //    if (test.open(QSerialPort::ReadWrite)) {
     //        QString Parcel;
