@@ -4,32 +4,101 @@
 #include <QObject>
 #include <QtSerialPort>
 
-class MAN : public QSerialPort {
+#include "elemer.h"
+
+#include "qt_windows.h"
+
+class MAN : public QSerialPort, public ELEMER {
     Q_OBJECT
 public:
-    explicit MAN(QObject* parent = 0);
+    explicit MAN(QObject* parent = 0)
+        : QSerialPort(parent)
+    {
+        setFlowControl(QSerialPort::NoFlowControl);
+        setParity(QSerialPort::NoParity);
+        setBaudRate(19200);
+        connect(this, &MAN::PingSignal, this, &MAN::PingSlot);
+        ::QueryPerformanceFrequency((LARGE_INTEGER*)&T3);
+        T1 = T3;
+    }
 
-//    Private Function WriteRead(ByVal H As Long, ByRef S As String, Optional ByVal T As Single = 1) As String
-//        Dim Data() As Byte
-//        Dim Flag As Integer
-//        If Len(S) > 1 Then Debug.Print Left(S, Len(S) - 1)
-//        If H > 0 Then
-//            Call StrArr(S, Data)
-//            T = T + timer
-//            Flag = 1
-//            Call WriteP2(H, Data, Flag)
-//            Do While Flag And T > timer                   'Îæèäàíèå îòâåòà
-//                If Not PO Then Exit Do
-//                Call Sleep(1)
-//                DoEvents
-//            Loop
-//            Call Delay(0.05)
-//            If ReadP(H, Data) > 0 Then Call ArrStr(Data, S): WriteRead = S Else S = "": WriteRead = ""
-//        End If
-//        MAN.Label1.Caption = S
-//        If Len(S) > 1 Then Debug.Print Left(S, Len(S) - 1)
-//    End Function
+    double T1;
+    long long T2;
+    long long T3;
 
+    bool Ping(const QString& portName)
+    {
+        mutex.lock();
+        emit PingSignal(portName);
+        if (mutex.tryLock(1000)) {
+            mutex.unlock();
+            return true;
+        }
+        mutex.unlock();
+        return false;
+    }
+
+    void start()
+    {
+        ::QueryPerformanceCounter((LARGE_INTEGER*)&T2);
+    }
+    void stop()
+    {
+        ::QueryPerformanceCounter((LARGE_INTEGER*)&T3);
+        qDebug() << ((T3 - T2) / T1);
+    }
+
+    void PingSlot(const QString& portName)
+    {
+        QString Parcel;
+        QStringList Array;
+        int counter = 5;
+        start();
+        setPortName(portName);
+        if (open(QSerialPort::ReadWrite)) {
+            qDebug() << "open";
+            for (int i = 0; i < 4; ++i) {
+                Parcel = QString(":%1;254;").arg(i + 1);
+                Parcel = Parcel + ControlSum(Parcel) + '\r';
+                write(Parcel.toLocal8Bit());
+                waitForReadyRead(100);
+                Parcel = readAll();
+                while (!Parcel.count('\r') && counter--) {
+                    waitForReadyRead(10);
+                    Parcel.append(readAll());
+                }
+                if (!Check(Parcel, Array)) {
+                    close();
+                    return;
+                }
+                waitForReadyRead(50);
+            }
+            close();
+            mutex.unlock();
+        }
+        stop();
+    }
+
+    //    Private Function WriteRead(ByVal H As Long, ByRef S As String, Optional ByVal T As Single = 1) As String
+    //        Dim Data() As Byte
+    //        Dim Flag As Integer
+    //        If Len(S) > 1 Then Debug.Print Left(S, Len(S) - 1)
+    //        If H > 0 Then
+    //            Call StrArr(S, Data)
+    //            T = T + timer
+    //            Flag = 1
+    //            Call WriteP2(H, Data, Flag)
+    //            Do While Flag And T > timer                   'Îæèäàíèå îòâåòà
+    //                If Not PO Then Exit Do
+    //                Call Sleep(1)
+    //                DoEvents
+    //            Loop
+    //            Call Delay(0.05)
+    //            If ReadP(H, Data) > 0 Then Call ArrStr(Data, S): WriteRead = S Else S = "": WriteRead = ""
+    //        End If
+    //        MAN.Label1.Caption = S
+    //        If Len(S) > 1 Then Debug.Print Left(S, Len(S) - 1)
+    //    End Function
 
     //    typedef struct PAR {
     //        float InVoltage;
@@ -190,8 +259,12 @@ End Function
 */
 
 signals:
+    void PingSignal(const QString& portName);
 
 public slots:
+
+private:
+    QMutex mutex;
 };
 
 #endif // MAN_H
