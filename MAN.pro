@@ -13,8 +13,16 @@ TEMPLATE = app
 
 
 SOURCES += main.cpp\
-        mainwindow.cpp
+        mainwindow.cpp \
+    man.cpp \
+    agilent.cpp \
+    elemer.cpp \
+    trans.cpp
 
-HEADERS  += mainwindow.h
+HEADERS  += mainwindow.h \
+    man.h \
+    agilent.h \
+    elemer.h \
+    trans.h
 
 FORMS    += mainwindow.ui
