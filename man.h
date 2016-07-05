@@ -18,6 +18,9 @@ public:
     QList<double> GetValues();
     void GetValuesSlot(QList<double>& data);
 
+    bool SetLoad(const QList<float>& load);
+    void SetLoadSlot(const QList<float> &load);
+
     //    Private Function WriteRead(ByVal H As Long, ByRef S As String, Optional ByVal T As Single = 1) As String
     //        Dim Data() As Byte
     //        Dim Flag As Integer
@@ -200,11 +203,16 @@ End Function
 signals:
     void PingSignal(const QString&);
     void GetValuesSignal(QList<double>&);
+    void SetLoadSignal(const QList<float>&);
 
 public slots:
 
 private:
     QMutex mutex;
+
+    QList<double> LoadCurrent;
+    QList<double> MeasVal;
+    QList<bool> LoadEnabled;
 
     double T1;
     long long T2;
