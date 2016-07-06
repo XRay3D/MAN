@@ -4,7 +4,7 @@
 #
 #-------------------------------------------------
 
-QT       += core gui serialport
+QT       += core gui serialport sql
 
 greaterThan(QT_MAJOR_VERSION, 4): QT += widgets
 
@@ -17,12 +17,15 @@ SOURCES += main.cpp\
 	man.cpp \
 	agilent.cpp \
 	elemer.cpp \
-	trans.cpp
+	trans.cpp \
+    trans_database.cpp
 
 HEADERS  += mainwindow.h \
 	man.h \
 	agilent.h \
 	elemer.h \
-	trans.h
+	trans.h \
+    trans_database.h
 
-FORMS    += mainwindow.ui
+FORMS    += mainwindow.ui \
+    trans_database.ui

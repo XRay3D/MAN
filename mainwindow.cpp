@@ -4,6 +4,7 @@
 MainWindow::MainWindow(QWidget* parent)
     : QMainWindow(parent)
     , ui(new Ui::MainWindow)
+    , TrDataBase(this)
 {
     ui->setupUi(this);
 
@@ -88,12 +89,8 @@ void MainWindow::readSettings()
     settings.endGroup();
 }
 
-void MainWindow::on_pushButton_2_clicked()
-{
-}
-
-void MainWindow::on_pushButton_clicked()
-{
+/*void MainWindow::on_pushButton_clicked()
+{/*
     /*
     If MAIN.flUst Then
         Me.btnSetLoHiCurrent.Caption = "Âêëþ÷èòü íàãðóçêó"
@@ -115,8 +112,8 @@ void MainWindow::on_pushButton_clicked()
         Me.LabelU4.Caption = Find(Me.cbxTrans.Text, "BAZA").offset(0, 17)
     End If
 */
-}
-
+/*}*/
+/*
 void MainWindow::on_pushButton_3_clicked()
 {
     /*
@@ -153,8 +150,8 @@ A:
         MAN.MeasCurrent.Text = Format(S, "0.000")
         If Not MAIN.flUst Then Sheets("11").Cells(R, 1) = S
     End If
-*/
-}
+
+}*/
 
 void MainWindow::on_comboBox_3_currentIndexChanged(int index)
 {
@@ -215,9 +212,13 @@ void MainWindow::on_pushButtonPing_clicked()
     ui->lineEditU_4->setText(QString().setNum(val[3]).replace('.', ','));
 
     qDebug() << "SetLoad" << man.SetLoad(QList<float>() << 0.123f << 0.123f << 0.123f << 0.123f);
-
 }
 
 void MainWindow::on_pushButtonWrite_clicked()
 {
+}
+
+void MainWindow::on_pushButtonAddTrans_clicked()
+{
+    qDebug() << "TrDataBase" << TrDataBase.exec();
 }
