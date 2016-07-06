@@ -75,7 +75,7 @@ public:
         }
 
         /**/
-        QRegExp rx("-?\\d{1,3}");
+        QRegExp rx("[Т][П]-?\\d{1,3}");
         QValidator* validator =new QRegExpValidator(rx, parent);
         /**/
         QLineEdit* box = new QLineEdit(parent);
