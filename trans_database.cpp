@@ -8,6 +8,16 @@ TRANS_DATABASE::TRANS_DATABASE(QWidget* parent)
 
 {
     ui->setupUi(this);
+    table = ui->tableView;
+
+    table->addAction(ui->insertRowAction);
+    table->addAction(ui->deleteRowAction);
+    table->addAction(ui->fieldStrategyAction);
+    table->addAction(ui->rowStrategyAction);
+    table->addAction(ui->manualStrategyAction);
+    table->addAction(ui->submitAction);
+    table->addAction(ui->revertAction);
+    table->addAction(ui->selectAction);
 
     dbase.setDatabaseName("trans.db");
 
@@ -142,15 +152,115 @@ TRANS_DATABASE::TRANS_DATABASE(QWidget* parent)
         model->setHeaderData(col, Qt::Horizontal, headerList[col]);
     }
 
-    ui->tableView->setModel(model);
-    ui->tableView->resizeRowsToContents();
-    ui->tableView->resizeColumnsToContents();
+    table->setModel(model);
+    table->resizeRowsToContents();
+    table->resizeColumnsToContents();
+
+    connect(table->selectionModel(), SIGNAL(currentRowChanged(QModelIndex, QModelIndex)), this, SLOT(updateActions()));
+    updateActions();
 }
 
 TRANS_DATABASE::~TRANS_DATABASE()
 {
     dbase.close();
     delete ui;
+}
+
+void TRANS_DATABASE::insertRow()
+{
+    QSqlTableModel* model = qobject_cast<QSqlTableModel*>(table->model());
+    if (!model)
+        return;
+
+    QModelIndex insertIndex = table->currentIndex();
+    int row = insertIndex.row() == -1 ? 0 : insertIndex.row();
+    model->insertRow(row);
+    insertIndex = model->index(row, 0);
+    table->setCurrentIndex(insertIndex);
+    table->edit(insertIndex);
+}
+
+void TRANS_DATABASE::deleteRow()
+{
+    QSqlTableModel* model = qobject_cast<QSqlTableModel*>(table->model());
+    if (!model)
+        return;
+
+    QModelIndexList currentSelection = table->selectionModel()->selectedIndexes();
+    for (int i = 0; i < currentSelection.count(); ++i) {
+        if (currentSelection.at(i).column() != 0)
+            continue;
+        model->removeRow(currentSelection.at(i).row());
+    }
+
+    updateActions();
+}
+
+void TRANS_DATABASE::on_fieldStrategyAction_triggered()
+{
+    QSqlTableModel* tm = qobject_cast<QSqlTableModel*>(table->model());
+    if (tm)
+        tm->setEditStrategy(QSqlTableModel::OnFieldChange);
+}
+
+void TRANS_DATABASE::on_rowStrategyAction_triggered()
+{
+    QSqlTableModel* tm = qobject_cast<QSqlTableModel*>(table->model());
+    if (tm)
+        tm->setEditStrategy(QSqlTableModel::OnRowChange);
+}
+
+void TRANS_DATABASE::on_manualStrategyAction_triggered()
+{
+    QSqlTableModel* tm = qobject_cast<QSqlTableModel*>(table->model());
+    if (tm)
+        tm->setEditStrategy(QSqlTableModel::OnManualSubmit);
+}
+
+void TRANS_DATABASE::on_submitAction_triggered()
+{
+    QSqlTableModel* tm = qobject_cast<QSqlTableModel*>(table->model());
+    if (tm)
+        tm->submitAll();
+}
+
+void TRANS_DATABASE::on_revertAction_triggered()
+{
+    QSqlTableModel* tm = qobject_cast<QSqlTableModel*>(table->model());
+    if (tm)
+        tm->revertAll();
+}
+
+void TRANS_DATABASE::on_selectAction_triggered()
+{
+    QSqlTableModel* tm = qobject_cast<QSqlTableModel*>(table->model());
+    if (tm)
+        tm->select();
+}
+
+void TRANS_DATABASE::updateActions()
+{
+    QSqlTableModel* tm = qobject_cast<QSqlTableModel*>(table->model());
+    bool enableIns = tm;
+    bool enableDel = enableIns && table->currentIndex().isValid();
+
+    ui->insertRowAction->setEnabled(enableIns);
+    ui->deleteRowAction->setEnabled(enableDel);
+
+    ui->fieldStrategyAction->setEnabled(tm);
+    ui->rowStrategyAction->setEnabled(tm);
+    ui->manualStrategyAction->setEnabled(tm);
+    ui->submitAction->setEnabled(tm);
+    ui->revertAction->setEnabled(tm);
+    ui->selectAction->setEnabled(tm);
+
+    qDebug() << "tm" << tm;
+    if (tm) {
+        QSqlTableModel::EditStrategy es = tm->editStrategy();
+        ui->fieldStrategyAction->setChecked(es == QSqlTableModel::OnFieldChange);
+        ui->rowStrategyAction->setChecked(es == QSqlTableModel::OnRowChange);
+        ui->manualStrategyAction->setChecked(es == QSqlTableModel::OnManualSubmit);
+    }
 }
 
 void TRANS_DATABASE::showEvent(QShowEvent*)
