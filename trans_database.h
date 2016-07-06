@@ -39,6 +39,9 @@ private:
     // QWidget interface
 protected:
     void showEvent(QShowEvent*);
+
+signals:
+    void Current(QList<float>);
 };
 
 #endif // TRANS_DATABASE_H
