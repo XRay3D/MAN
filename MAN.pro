@@ -18,14 +18,16 @@ SOURCES += main.cpp\
 	agilent.cpp \
 	elemer.cpp \
 	trans.cpp \
-    trans_database.cpp
+    trans_database.cpp \
+    tableview.cpp
 
 HEADERS  += mainwindow.h \
 	man.h \
 	agilent.h \
 	elemer.h \
 	trans.h \
-    trans_database.h
+    trans_database.h \
+    tableview.h
 
 FORMS    += mainwindow.ui \
     trans_database.ui

@@ -18,6 +18,7 @@ TRANS_DATABASE::TRANS_DATABASE(QWidget* parent)
     table->addAction(ui->submitAction);
     table->addAction(ui->revertAction);
     table->addAction(ui->selectAction);
+    table->setContextMenuPolicy(Qt::ActionsContextMenu);
 
     dbase.setDatabaseName("trans.db");
 
@@ -153,6 +154,7 @@ TRANS_DATABASE::TRANS_DATABASE(QWidget* parent)
     }
 
     table->setModel(model);
+    table->setItemDelegate(new QSqlRelationalDelegate(table));
     table->resizeRowsToContents();
     table->resizeColumnsToContents();
 
@@ -194,6 +196,16 @@ void TRANS_DATABASE::deleteRow()
     }
 
     updateActions();
+}
+
+void TRANS_DATABASE::on_insertRowAction_triggered()
+{
+    insertRow();
+}
+
+void TRANS_DATABASE::on_deleteRowAction_triggered()
+{
+    deleteRow();
 }
 
 void TRANS_DATABASE::on_fieldStrategyAction_triggered()

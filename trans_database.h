@@ -21,6 +21,8 @@ private slots:
     void insertRow();
     void deleteRow();
 
+    void on_insertRowAction_triggered();
+    void on_deleteRowAction_triggered();
     void on_fieldStrategyAction_triggered();
     void on_rowStrategyAction_triggered();
     void on_manualStrategyAction_triggered();

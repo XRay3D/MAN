@@ -25,7 +25,11 @@
     </widget>
    </item>
    <item row="0" column="0">
-    <widget class="QTableView" name="tableView"/>
+    <widget class="TableView" name="tableView">
+     <property name="selectionBehavior">
+      <enum>QAbstractItemView::SelectRows</enum>
+     </property>
+    </widget>
    </item>
   </layout>
   <action name="insertRowAction">
@@ -108,6 +112,13 @@
    </property>
   </action>
  </widget>
+ <customwidgets>
+  <customwidget>
+   <class>TableView</class>
+   <extends>QTableView</extends>
+   <header>tableview.h</header>
+  </customwidget>
+ </customwidgets>
  <resources/>
  <connections>
   <connection>
