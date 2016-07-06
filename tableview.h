@@ -74,10 +74,14 @@ public:
             return QItemDelegate::createEditor(parent, option, index);
         }
 
-        /**/
-        QRegExp rx("[Т][П]-?\\d{1,3}");
-        QValidator* validator =new QRegExpValidator(rx, parent);
-        /**/
+        QRegExp rx("[Т][П]"
+                   "[0-9]{1,3}"
+                   "[(]"
+                   "[0-9х/-,]{3,20}"
+                   "[)]"
+                   "[А-ЯA-Z0-9х/-,]{0,10}");
+        QValidator* validator = new QRegExpValidator(rx, parent);
+
         QLineEdit* box = new QLineEdit(parent);
         box->setValidator(validator);
         //        box->setEditable(true);
