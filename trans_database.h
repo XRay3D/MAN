@@ -1,10 +1,9 @@
-#ifndef TRANS_DATABASE_H
-#define TRANS_DATABASE_H
+#pragma once
 
-#include <QDialog>
-#include <QtWidgets>
-#include <QtSql>
 #include "ui_trans_database.h"
+#include <QDialog>
+#include <QtSql>
+#include <QtWidgets>
 
 namespace Ui {
 class TRANS_DATABASE;
@@ -20,7 +19,6 @@ private slots:
     void updateActions();
     void insertRow();
     void deleteRow();
-
     void on_insertRowAction_triggered();
     void on_deleteRowAction_triggered();
     void on_fieldStrategyAction_triggered();
@@ -41,9 +39,4 @@ private:
     // QWidget interface
 protected:
     void showEvent(QShowEvent*);
-
-signals:
-    void Current(QList<float>);
 };
-
-#endif // TRANS_DATABASE_H

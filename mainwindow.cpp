@@ -1,224 +1,286 @@
 #include "mainwindow.h"
+#include "hwi/interface.h"
+#include "measuremodel.h"
+#include "testedmodel.h"
+#include "transmodel.h"
 #include "ui_mainwindow.h"
+
+#include <QClipboard>
+#include <QTimer>
+#include <QtCharts>
+#include <ranges>
+
+const int fvId = qRegisterMetaType<QVector<float>>("QVector<float>");
+
+using namespace QtCharts;
+
+enum { DataCount = 101 };
+
+class PopupItemDelegate : public QStyledItemDelegate {
+public:
+    using QStyledItemDelegate::QStyledItemDelegate;
+    QSize sizeHint(const QStyleOptionViewItem& option, const QModelIndex& index) const override
+    {
+        return QStyledItemDelegate::sizeHint(option, index) + QSize(0, 10);
+    }
+};
 
 MainWindow::MainWindow(QWidget* parent)
     : QMainWindow(parent)
     , ui(new Ui::MainWindow)
-    , TrDataBase(this)
+    , lineSeries { new QLineSeries, new QLineSeries, new QLineSeries, new QLineSeries }
+    , axisX { new QValueAxis }
+    , axisY { new QValueAxis }
+    , chart { new QChart }
+    , chartView { new QChartView(chart) }
 {
     ui->setupUi(this);
 
-    foreach (QSerialPortInfo info, QSerialPortInfo::availablePorts()) {
-        ui->comboBoxPort_1->addItem(info.portName());
-        ui->comboBoxPort_2->addItem(info.portName());
+    // QChart
+    for (auto& cd : chartsData)
+        cd.reserve(DataCount);
+
+    axisX->setLabelFormat("%g");
+    axisY->setTitleText("Напряжение, В.");
+    chart->addAxis(axisX, Qt::AlignBottom);
+
+    for (auto ls : lineSeries) {
+        chart->addSeries(ls);
+        ls->attachAxis(axisX);
+        chart->addAxis(axisY, Qt::AlignLeft);
+        ls->attachAxis(axisY);
     }
+    chartView->setRenderHint(QPainter::Antialiasing);
+
+    chart->legend()->hide();
+    chart->setMargins({});
+    //m_chart->setTitle("Data from the microphone (" + QString("deviceInfo.deviceName()") + ')');
+    ui->vlayMeasure->addWidget(chartView);
+
+    // Available Ports
+    auto availablePorts { QSerialPortInfo::availablePorts() };
+    std::sort(availablePorts.begin(), availablePorts.end(), [](auto& pil, auto& pir) {
+        return pil.portName().mid(3).toInt() < pir.portName().mid(3).toInt();
+    });
+    for (auto& info : availablePorts) {
+        ui->cbxPortI->addItem(info.portName());
+        ui->cbxPortMan->addItem(info.portName());
+    }
+
+    // Trans Model
+    ui->cbxTrans->setModel(transModel = new TransModel(ui->cbxTrans));
+    ui->cbxTrans->view()->setItemDelegate(new PopupItemDelegate(ui->cbxTrans));
+    ui->cbxTrans->setContextMenuPolicy(Qt::CustomContextMenu);
+    connect(ui->cbxTrans, &QTableView::customContextMenuRequested, [this](const QPoint& pos) {
+        QMenu menu;
+        menu.addAction("Редактировать Обмотки", [this] {
+            TransDialog d(ui->cbxTrans->model());
+            connect(&d, &QDialog::accepted, [] { exit(0); });
+            d.exec(); });
+        menu.exec(ui->cbxTrans->mapToGlobal(pos));
+    });
+
+    // Tested Model
+    ui->tvTested->setModel(testedModel = new TestedModel(ui->tvTested));
+    ui->tvTested->verticalHeader()->setSectionResizeMode(QHeaderView::ResizeToContents);
+    ui->tvTested->horizontalHeader()->setSectionResizeMode(QHeaderView::Stretch);
+    ui->tvTested->setContextMenuPolicy(Qt::CustomContextMenu);
+    connect(ui->tvTested, &QTableView::customContextMenuRequested, [this](const QPoint& pos) {
+        QMenu menu;
+        menu.addAction("Копировать данные", [this] {
+            QClipboard* clipboard = QGuiApplication::clipboard();
+            QString originalText = clipboard->text();
+            clipboard->setText(testedModel->toString().replace('.', ','));
+        });
+        menu.exec(ui->tvTested->viewport()->mapToGlobal(pos));
+    });
+    // Measure Model
+    ui->tvMeasured->setModel(measureModel = new MeasureModel(ui->tvMeasured));
+    ui->tvMeasured->verticalHeader()->setSectionResizeMode(QHeaderView::Stretch);
+    ui->tvMeasured->horizontalHeader()->setSectionResizeMode(QHeaderView::Stretch);
+    ui->tvMeasured->verticalHeader()->setFont(font());
+    ui->tvMeasured->horizontalHeader()->setFont(font());
+    ui->tvMeasured->setMaximumHeight(100);
+    ui->tvMeasured->setMinimumHeight(100);
+    ui->tvMeasured->setFont(font());
+
+    // Check Box for Set Load
+    auto setupUi = [this](QWidget* Form) {
+        QSizePolicy sizePolicy(QSizePolicy::Fixed, QSizePolicy::Minimum);
+        sizePolicy.setHorizontalStretch(0);
+        sizePolicy.setVerticalStretch(0);
+        //        sizePolicy.setHeightForWidth(frame->sizePolicy().hasHeightForWidth());
+
+        auto frame = new QFrame(Form);
+        frame->setObjectName(QString::fromUtf8("frame"));
+        frame->setSizePolicy(sizePolicy);
+        frame->setFrameShape(QFrame::StyledPanel);
+        frame->setFrameShadow(QFrame::Raised);
+
+        auto checkBox = ui->chbxSetPointLoad;
+        sizePolicy.setHeightForWidth(checkBox->sizePolicy().hasHeightForWidth());
+        checkBox->setSizePolicy(sizePolicy);
+        checkBox->setTristate(false);
+
+        auto verticalLayout = new QVBoxLayout(Form);
+        verticalLayout->setObjectName(QString::fromUtf8("verticalLayout"));
+        verticalLayout->setContentsMargins(6, 0, 0, 2);
+        verticalLayout->addWidget(frame);
+        verticalLayout->addWidget(checkBox);
+
+        connect(checkBox, &QCheckBox::clicked, measureModel, &MeasureModel::setLoad, Qt::QueuedConnection);
+        connect(checkBox, &QCheckBox::clicked, [checkBox]() {
+            checkBox->checkState() == Qt::PartiallyChecked ? checkBox->setCheckState(Qt::Checked)
+                                                           : void();
+        });
+
+        connect(measureModel, &MeasureModel::updateQCheckBox, [checkBox](bool val[4]) {
+            int ctr {};
+            for (int i = 0; i < 4; ++i)
+                ctr += val[i] ? 1 : 0;
+            checkBox->setCheckState(ctr == 4 ? Qt::Checked : (ctr == 0 ? Qt::Unchecked : Qt::PartiallyChecked));
+        });
+    };
+    setupUi(ui->tvMeasured->verticalHeader());
+
+    connect(ui->pbCheckConnection, &QPushButton::clicked, [&]() {
+        qDebug() << MI::man()->ping(ui->cbxPortMan->currentText());
+        qDebug() << MI::scpi()->ping(ui->cbxPortI->currentText());
+    });
+
+    connect(ui->pbMeasure, &QPushButton::clicked, [&](bool checked) {
+        if (m_timerId)
+            killTimer(m_timerId);
+        m_timerId = checked ? startMeasure()
+                            : stopMeasure();
+    });
+
+    // MI connect
+    connect(MI::man(), &Man::Voltage, measureModel, &MeasureModel::setVoltages);
+    connect(MI::man(), &Man::Voltage, this, &MainWindow::addToCharts);
+    connect(measureModel, &MeasureModel::setCurrent, MI::man(), &Man::setCurrent, Qt::DirectConnection);
+    connect(measureModel, &MeasureModel::setEnabLoad, MI::man(), &Man::setEnabledCurrent, Qt::DirectConnection);
+    connect(this, &MainWindow::getVoltage, MI::man(), &Man::getVoltage, Qt::QueuedConnection);
+
+    connect(this, &MainWindow::getCurrentI, MI::scpi(), &SCPI::getAcCurrent, Qt::QueuedConnection);
+    connect(MI::scpi(), &SCPI::measureReady, this, &MainWindow::setCurrent);
+
     readSettings();
-
-    /*
- Dim I As Byte
-    Dim S As String
-    Dim PortList() As String
-
-    ThisWorkbook.Save
-    If Mcp.EnumP(PortList) > 0 Then
-        For I = LBound(PortList) To UBound(PortList)
-            Call Me.cbxPort.AddItem(PortList(I), I)
-            Call Me.cbxPortA.AddItem(PortList(I), I)
-        Next
-    End If
-
-    Me.I1.Text = "000.000"
-    Me.I2.Text = "000.000"
-    Me.I3.Text = "000.000"
-    Me.I4.Text = "000.000"
-
-    Me.btnSetLoHiCurrent.Enabled = False
-    Me.btnWrite.Enabled = False
-    Me.MeasCurrent.Enabled = False
-
-    For I = 0 To 50
-        S = Sheets("BAZA").Cells(I + 4, 2)
-        If S <> "" Then
-            Call Me.cbxTrans.AddItem(Sheets("BAZA").Cells(I + 4, 2), I)
-        Else
-            Exit For
-        End If
-    Next
-
-    If Me.cbxPort.ListCount > Sheets("INI").Cells(1, 1) Then Me.cbxPort.ListIndex = Sheets("INI").Cells(1, 1) Else Me.cbxPort.ListIndex = 0
-    If Me.cbxPortA.ListCount > Sheets("INI").Cells(1, 2) Then Me.cbxPortA.ListIndex = Sheets("INI").Cells(1, 2) Else Me.cbxPortA.ListIndex = 0
-    If Me.cbxTrans.ListCount > Sheets("INI").Cells(1, 3) Then Me.cbxTrans.ListIndex = Sheets("INI").Cells(1, 3) Else Me.cbxTrans.ListIndex = 0
-    Me.CheckBox1.Value = Sheets("INI").Cells(1, 4)
-*/
+    QTimer::singleShot(100, [this] { ui->pbCheckConnection->clicked(); });
 }
 
 MainWindow::~MainWindow()
 {
+    if (m_timerId)
+        killTimer(m_timerId);
+    MI::man()->disconnect();
     writeSettings();
-    /*
-    If Me.cbxPort.Enabled = False Then Call Mcp.ClosePort
-    Sheets("INI").Cells(1, 1) = Me.cbxPort.ListIndex
-    Sheets("INI").Cells(1, 2) = Me.cbxPortA.ListIndex
-    Sheets("INI").Cells(1, 3) = Me.cbxTrans.ListIndex
-    Sheets("INI").Cells(1, 4) = Me.CheckBox1.Value
-*/
     delete ui;
 }
 
 void MainWindow::writeSettings()
 {
-    QSettings settings("XrSoft", "MAN");
-
+    QSettings settings;
     settings.beginGroup("MainWindow");
-    settings.setValue("size", size());
-    settings.setValue("pos", pos());
-    settings.setValue("comboBoxPort_1", ui->comboBoxPort_1->currentIndex());
-    settings.setValue("comboBoxPort_2", ui->comboBoxPort_2->currentIndex());
+    settings.setValue("geometry", saveGeometry());
+    settings.setValue("state", saveState());
+    settings.setValue("cbxPortMan", ui->cbxPortMan->currentText());
+    settings.setValue("cbxPortI", ui->cbxPortI->currentText());
+    settings.setValue("cbxTrans", ui->cbxTrans->currentIndex());
     settings.endGroup();
 }
 
 void MainWindow::readSettings()
 {
-    QSettings settings("XrSoft", "MAN");
-
+    QSettings settings;
     settings.beginGroup("MainWindow");
-    resize(settings.value("size", QSize(400, 400)).toSize());
-    move(settings.value("pos", QPoint(200, 200)).toPoint());
-    ui->comboBoxPort_1->setCurrentIndex(settings.value("comboBoxPort_1").toInt());
-    ui->comboBoxPort_2->setCurrentIndex(settings.value("comboBoxPort_2").toInt());
+    restoreGeometry(settings.value("geometry").toByteArray());
+    restoreState(settings.value("state").toByteArray());
+    ui->cbxPortMan->setCurrentText(settings.value("cbxPortMan").toString());
+    ui->cbxPortI->setCurrentText(settings.value("cbxPortI").toString());
+    ui->cbxTrans->setCurrentIndex(settings.value("cbxTrans").toInt());
     settings.endGroup();
 }
 
-/*void MainWindow::on_pushButton_clicked()
-{/*
-    /*
-    If MAIN.flUst Then
-        Me.btnSetLoHiCurrent.Caption = "Âêëþ÷èòü íàãðóçêó"
-        Me.btnSetLoHiCurrent.BackColor = RGB(128, 255, 128)
-        MAIN.flUst = False
-        Me.Frame1.Caption = "Íàïðÿæåíèå " & "(" & Hi(0).InVoltage & ")"
-        Me.LabelU1.Caption = Find(Me.cbxTrans.Text, "BAZA").offset(0, 5)
-        Me.LabelU2.Caption = Find(Me.cbxTrans.Text, "BAZA").offset(0, 6)
-        Me.LabelU3.Caption = Find(Me.cbxTrans.Text, "BAZA").offset(0, 7)
-        Me.LabelU4.Caption = Find(Me.cbxTrans.Text, "BAZA").offset(0, 8)
-    Else
-        Me.btnSetLoHiCurrent.Caption = "Âûêëþ÷èòü íàãðóçêó"
-        Me.btnSetLoHiCurrent.BackColor = RGB(255, 128, 128)
-        MAIN.flUst = True
-        Me.Frame1.Caption = "Íàïðÿæåíèå " & "(" & Lo(0).InVoltage & ")"
-        Me.LabelU1.Caption = Find(Me.cbxTrans.Text, "BAZA").offset(0, 14)
-        Me.LabelU2.Caption = Find(Me.cbxTrans.Text, "BAZA").offset(0, 15)
-        Me.LabelU3.Caption = Find(Me.cbxTrans.Text, "BAZA").offset(0, 16)
-        Me.LabelU4.Caption = Find(Me.cbxTrans.Text, "BAZA").offset(0, 17)
-    End If
-*/
-/*}*/
-/*
-void MainWindow::on_pushButton_3_clicked()
+void MainWindow::addToCharts(const QVector<float>& val)
 {
-    /*
-    Dim I As Long
-    Dim R As Long
-    Dim C As Long
-    For R = 2 To 1000
-        If MAIN.flUst Then
-            If Sheets("11").Cells(R, 7) = "" Then
-                For C = 1 To UBound(MAIN.Channel) + 1
-                    Sheets("11").Cells(R, C + 6) = VoltVal(C)
-                Next
-                GoTo A
-            End If
-        Else
-            If Sheets("11").Cells(R, 2) = "" Then
-
-                For C = 1 To UBound(MAIN.Channel) + 1
-                    Sheets("11").Cells(R, C + 1) = VoltVal(C)
-                Next
-                GoTo A
-            End If
-        End If
-    Next
-A:
-    Sheets("11").Cells(R, 11) = Me.cbxTrans.Text
-    Sheets("11").Cells(R, 12) = Time
-    Sheets("11").Cells(R, 13) = Date
-    Sheets("11").Cells(R, 13) = "îò" & Format(Date, "d mmmm yyyy") & "ã."
-
-    Dim S As Single
-    If MAN.CheckBox1.Value Then
-        S = GetIAC * 1000#
-        MAN.MeasCurrent.Text = Format(S, "0.000")
-        If Not MAIN.flUst Then Sheets("11").Cells(R, 1) = S
-    End If
-
-}*/
-
-void MainWindow::on_comboBox_3_currentIndexChanged(int index)
-{
-    /*
-    Dim I As Integer
-    Dim Ar() As String
-
-    For I = LBound(Lo) To UBound(Lo)
-        MAIN.Lo(I).InVoltage = Find(Me.cbxTrans.Text, "BAZA").offset(0, 9)
-        MAIN.Lo(I).LoVoltage = Value2(Find(Me.cbxTrans.Text, "BAZA").offset(0, 14 + I))(0)
-        MAIN.Lo(I).HiVoltage = Value2(Find(Me.cbxTrans.Text, "BAZA").offset(0, 14 + I))(1)
-        MAIN.Lo(I).LoadCurrent = Value(Find(Me.cbxTrans.Text, "BAZA").offset(0, 10 + I))
-        MAIN.Lo(I).IdleCurrent = 0#
-        Call CurrVal(I + 1, MAIN.Lo(I).LoadCurrent)
-    Next
-    For I = LBound(Hi) To UBound(Hi)
-        MAIN.Hi(I).InVoltage = Find(Me.cbxTrans.Text, "BAZA").offset(0, 4)
-        MAIN.Hi(I).LoVoltage = Value2(Find(Me.cbxTrans.Text, "BAZA").offset(0, 5 + I))(0)
-        MAIN.Hi(I).HiVoltage = Value2(Find(Me.cbxTrans.Text, "BAZA").offset(0, 5 + I))(1)
-        MAIN.Hi(I).LoadCurrent = 0#
-        MAIN.Hi(I).IdleCurrent = Value(Find(Me.cbxTrans.Text, "BAZA").offset(0, 3))
-    Next
-
-    Ar = Split(Find(Me.cbxTrans.Text, "BAZA").offset(0, 2), ",", -1, vbTextCompare)
-    ReDim MAIN.Channel(UBound(Ar))
-
-    For I = LBound(Ar) To UBound(Ar)
-        MAIN.Channel(I) = Val(Ar(I))
-    Next
-
-    MAIN.flUst = True
-    Call btnSetLoHiCurrent_Click
-*/
+    if (val.size() == 4) {
+        static uint ctr;
+        double min = +std::numeric_limits<double>::max(),
+               max = -std::numeric_limits<double>::max();
+        for (int i = 0; i < 4; ++i) {
+            DataCount > ctr ? (chartsData[i].append(QPointF { static_cast<qreal>(ctr % DataCount), val[i] }), QPointF {})
+                            : chartsData[i][ctr % DataCount] = QPointF { static_cast<qreal>(ctr % DataCount), val[i] };
+            lineSeries[i]->replace(chartsData[i]);
+            auto [min_, max_] = std::ranges::minmax(chartsData[i], [](QPointF p1, QPointF p2) { return p1.y() < p2.y(); });
+            min = std::min(min, min_.y());
+            max = std::max(max, max_.y());
+        }
+        axisX->setRange(0, DataCount < ctr ? DataCount - 1 : ctr - 1);
+        axisY->setRange(min, max);
+        ++ctr;
+    }
+    semMan.acquire(semMan.available());
+    //m.unlock();
 }
 
-void MainWindow::on_checkBox_clicked(bool checked)
+void MainWindow::setCurrent(double val)
 {
-    /*
-    If Me.CheckBox1.Value Then Me.cbxPortA.Enabled = True Else Me.cbxPortA.Enabled = False
-
-*/
+    qDebug() << __FUNCTION__;
+    ui->dsbxCurrentIn->setValue(val);
+    semScpi.acquire(semScpi.available());
 }
 
-void MainWindow::on_pushButtonLoad_clicked(bool checked)
+int MainWindow::startMeasure()
 {
-    qDebug() << "SetLoadEnabled" << man.SetLoadEnabled(QList<bool>() << checked << checked << checked << checked);
+    semMan.release();
+    emit getVoltage();
+    semScpi.release();
+    emit getCurrentI();
+    return startTimer(10);
 }
 
-void MainWindow::on_pushButtonPing_clicked()
+int MainWindow::stopMeasure()
 {
-    qDebug() << "Ping" << man.Ping(ui->comboBoxPort_1->currentText());
-
-    QList<double> val = man.GetValues(1);
-
-    ui->lineEditU_1->setText(QString().setNum(val[0]).replace('.', ','));
-    ui->lineEditU_2->setText(QString().setNum(val[1]).replace('.', ','));
-    ui->lineEditU_3->setText(QString().setNum(val[2]).replace('.', ','));
-    ui->lineEditU_4->setText(QString().setNum(val[3]).replace('.', ','));
-
-    qDebug() << "SetLoad" << man.SetLoad(QList<float>() << 0.123f << 0.123f << 0.123f << 0.123f);
+    semMan.acquire(semMan.available());
+    semScpi.acquire(semScpi.available());
+    return 0;
 }
 
-void MainWindow::on_pushButtonWrite_clicked()
+void MainWindow::setCurrents([[maybe_unused]] const QVector<float>& val)
 {
 }
 
-void MainWindow::on_pushButtonAddTrans_clicked()
+void MainWindow::timerEvent(QTimerEvent* event)
 {
-    qDebug() << "TrDataBase" << TrDataBase.exec();
+    if (event->timerId() == m_timerId && /* m.tryLock()*/ !semMan.available()) {
+        semMan.release();
+        emit getVoltage({ 1 });
+    }
+    if (event->timerId() == m_timerId && /* m.tryLock()*/ !semScpi.available()) {
+        semScpi.release();
+        emit getCurrentI();
+    }
+}
+
+void MainWindow::on_cbxTrans_currentIndexChanged(int index)
+{
+    if (index < 0 || !measureModel || !transModel)
+        return;
+    auto& trans = transModel->trans(index);
+    measureModel->setTrans(trans);
+    ui->dsbxULoad->setValue(trans.PrimaryCoils.front().LoadVoltage);
+    ui->dsbxUNoLoad->setValue(trans.PrimaryCoils.front().NoLoadVoltage);
+}
+
+void MainWindow::on_pbClear_clicked()
+{
+    testedModel->clear();
+}
+
+void MainWindow::on_pbWrite_clicked()
+{
+    testedModel->addFromMM(measureModel, ui->chbxSetPointLoad->isChecked());
+    testedModel->setCurrent(ui->dsbxCurrentIn->value());
+    ui->tvTested->selectRow(testedModel->last());
 }

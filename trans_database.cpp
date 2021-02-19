@@ -18,7 +18,6 @@ TRANS_DATABASE::TRANS_DATABASE(QWidget* parent)
     table->addAction(ui->submitAction);
     table->addAction(ui->revertAction);
     table->addAction(ui->selectAction);
-    table->setContextMenuPolicy(Qt::ActionsContextMenu);
 
     dbase.setDatabaseName("trans.db");
 
@@ -126,7 +125,7 @@ TRANS_DATABASE::TRANS_DATABASE(QWidget* parent)
     }
 
     model->setTable("trans");
-    model->setEditStrategy(QSqlTableModel::OnFieldChange);
+    model->setEditStrategy(QSqlTableModel::OnManualSubmit);
     model->select();
 
     QStringList headerList = QStringList() << "Тип\nтрансформатора"
@@ -154,10 +153,12 @@ TRANS_DATABASE::TRANS_DATABASE(QWidget* parent)
     }
 
     table->setModel(model);
-    table->setItemDelegate(new QSqlRelationalDelegate(table));
+
+    table->setEditTriggers(QAbstractItemView::DoubleClicked | QAbstractItemView::EditKeyPressed);
+
     table->resizeRowsToContents();
     table->resizeColumnsToContents();
-
+//    connect(table->selectionModel(), SIGNAL(currentRowChanged(QModelIndex, QModelIndex)), this, SLOT(currentChanged()));
     connect(table->selectionModel(), SIGNAL(currentRowChanged(QModelIndex, QModelIndex)), this, SLOT(updateActions()));
     updateActions();
 }

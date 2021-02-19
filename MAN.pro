@@ -4,30 +4,52 @@
 #
 #-------------------------------------------------
 
-QT       += core gui serialport sql
+QT       += core gui serialport sql widgets charts
 
-greaterThan(QT_MAJOR_VERSION, 4): QT += widgets
+include(../elemer_ascii/elemer_ascii.pri)
+include(../Agilent34401/Agilent34401.pri)
+include(../CommonInterfaces/CommonInterfaces.pri)
+
+DESTDIR = $$_PRO_FILE_PWD_/bin
+
 
 TARGET = MAN
 TEMPLATE = app
 
+#CONFIG += c++17
 
-SOURCES += main.cpp\
-		mainwindow.cpp \
-	man.cpp \
-	agilent.cpp \
-	elemer.cpp \
-	trans.cpp \
-    trans_database.cpp \
-    tableview.cpp
+QMAKE_CXXFLAGS += /std:c++latest
+QMAKE_CXXFLAGS += /await
+DEFINES += __cpp_lib_coroutine
 
-HEADERS  += mainwindow.h \
-	man.h \
-	agilent.h \
-	elemer.h \
-	trans.h \
-    trans_database.h \
-    tableview.h
+INCLUDEPATH += ../../magic_get/include
+INCLUDEPATH += C:/local/boost_1_71_0
+#INCLUDEPATH += ../Elemer_ASCII/
 
-FORMS    += mainwindow.ui \
+SOURCES += \
+    hwi/interface.cpp \
+    hwi/man.cpp \
+    main.cpp\
+    mainwindow.cpp \
+#    trans.cpp \
+#    trans_database.cpp\
+    measuremodel.cpp \
+    testedmodel.cpp \
+    transmodel.cpp
+
+
+HEADERS += \
+    hwi/common_interfaces.h \
+    hwi/interface.h \
+    hwi/man.h \
+    magicgetruntime.h \
+    mainwindow.h \
+#    trans.h \
+#    trans_database.h \
+    measuremodel.h \
+    testedmodel.h \
+    transmodel.h
+
+
+FORMS += mainwindow.ui \
     trans_database.ui
