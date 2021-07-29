@@ -9,12 +9,6 @@ namespace Ui {
 class MainWindow;
 }
 
-namespace QtCharts {
-class QChart;
-class QChartView;
-class QLineSeries;
-class QValueAxis;
-}
 
 class MeasureModel;
 class TransModel;
@@ -45,6 +39,10 @@ private slots:
     void on_pbClear_clicked();
     void on_pbWrite_clicked();
 
+    void on_pbTransList_clicked();
+
+    void on_pbCopy_clicked();
+
 private:
     Ui::MainWindow* ui;
     //    TRANS_DATABASE TrDataBase;
@@ -53,17 +51,11 @@ private:
     //QMutex m;
     int m_timerId = 0;
 
-    TransModel* transModel;
-    MeasureModel* measureModel;
-    TestedModel* testedModel;
+    TransModel* transModel {};
+    MeasureModel* measureModel {};
+    TestedModel* testedModel {};
 
-    // QtCharts
-    QVector<QPointF> chartsData[4];
-    QtCharts::QLineSeries* const lineSeries[4];
-    QtCharts::QValueAxis* const axisX;
-    QtCharts::QValueAxis* const axisY;
-    QtCharts::QChart* const chart;
-    QtCharts::QChartView* const chartView;
+
     // QObject interface
 protected:
     void timerEvent(QTimerEvent* event) override;

@@ -2,40 +2,37 @@
 
 #include <QtSerialPort>
 #include <commoninterfaces.h>
-#include <elemer_ascii.h>
+#include <ed_device.h>
 
-class MANPort;
-
-class Man : public QObject, public CommonInterfaces, public ElemerASCII {
+class Man : public Elemer::Device {
     Q_OBJECT
-    friend class MANPort;
 
 public:
     Man(QObject* parent = nullptr);
-    bool ping(const QString& portName = QString(), int baud = 9600, int addr = 0);
-    int getDev(int addr);
+    Elemer::DeviceType type() const override { return Elemer::MAN; }
 
     bool setCurrent(double value, int addr = 0);
     bool setEnabledCurrent(bool enable, int addr = 0);
     bool getCurrent(int addr = 0);
-    bool getVoltage(const QVector<int> addr);
+    bool getVoltage(const QVector<int> &addr);
 
 private:
-    // uint getUintData(QByteArray data);
-    // bool getSuccess(QByteArray data);
-    // QByteArray m_data;
-    QList<QByteArray> m_data;
+    //    // uint getUintData(QByteArray data);
+    //    // bool getSuccess(QByteArray data);
+    //    // QByteArray m_data;
+    //    QList<QByteArray> m_data;
     std::map<int, bool> m_load;
     std::map<int, float> m_current;
-    QVector<float> m_values { 0.0, 0.0, 0.0, 0.0 };
+    QVector<float> m_valuesV { 0.0, 0.0, 0.0, 0.0 };
+    QVector<float> m_valuesI { 0.0, 0.0, 0.0, 0.0 };
 
-    int dev;
-    int serNum;
-    int address;
-    int chMum;
-    int baudRate;
-    int outPin;
-    int out;
+    //    int dev;
+    //    int serNum;
+    //    int address;
+    //    int chMum;
+    //    int baudRate;
+    //    int outPin;
+    //    int out;
 
     enum uartCmd : uint8_t {
         GetType = 0,
@@ -66,36 +63,16 @@ private:
     };
 
 signals:
-    void open(int mode);
-    void close();
     void SetValue(const QVector<quint16>&);
-    void write(const QByteArray& data);
-
     void Voltage(const QVector<float>&);
     void Current(const QVector<float>&);
 
-private:
-    bool m_connected = false;
-    bool m_result = false;
-    int m_counter = 0;
-    MANPort* m_port;
-    QMutex m_mutex;
-    QSemaphore m_semaphore;
-    QThread m_portThread;
-};
-
-class MANPort : public QSerialPort, public ElemerASCII {
-    Q_OBJECT
-
-public:
-    MANPort(Man* kds);
-    void Open(int mode);
-    void Close();
-    void Write(const QByteArray& data);
-    Man* m_kds;
-
-private:
-    void procRead();
-    QByteArray m_data;
-    QMutex m_mutex;
+    //private:
+    //    bool m_connected = false;
+    //    bool m_result = false;
+    //    int m_counter = 0;
+    //    MANPort* m_port;
+    //    QMutex m_mutex;
+    //    QSemaphore m_semaphore;
+    //    QThread m_portThread;
 };

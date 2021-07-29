@@ -14,8 +14,6 @@ const int fvId = qRegisterMetaType<QVector<float>>("QVector<float>");
 
 using namespace QtCharts;
 
-enum { DataCount = 101 };
-
 class PopupItemDelegate : public QStyledItemDelegate {
 public:
     using QStyledItemDelegate::QStyledItemDelegate;
@@ -28,34 +26,9 @@ public:
 MainWindow::MainWindow(QWidget* parent)
     : QMainWindow(parent)
     , ui(new Ui::MainWindow)
-    , lineSeries { new QLineSeries, new QLineSeries, new QLineSeries, new QLineSeries }
-    , axisX { new QValueAxis }
-    , axisY { new QValueAxis }
-    , chart { new QChart }
-    , chartView { new QChartView(chart) }
+
 {
     ui->setupUi(this);
-
-    // QChart
-    for (auto& cd : chartsData)
-        cd.reserve(DataCount);
-
-    axisX->setLabelFormat("%g");
-    axisY->setTitleText("Напряжение, В.");
-    chart->addAxis(axisX, Qt::AlignBottom);
-
-    for (auto ls : lineSeries) {
-        chart->addSeries(ls);
-        ls->attachAxis(axisX);
-        chart->addAxis(axisY, Qt::AlignLeft);
-        ls->attachAxis(axisY);
-    }
-    chartView->setRenderHint(QPainter::Antialiasing);
-
-    chart->legend()->hide();
-    chart->setMargins({});
-    //m_chart->setTitle("Data from the microphone (" + QString("deviceInfo.deviceName()") + ')');
-    ui->vlayMeasure->addWidget(chartView);
 
     // Available Ports
     auto availablePorts { QSerialPortInfo::availablePorts() };
@@ -70,30 +43,12 @@ MainWindow::MainWindow(QWidget* parent)
     // Trans Model
     ui->cbxTrans->setModel(transModel = new TransModel(ui->cbxTrans));
     ui->cbxTrans->view()->setItemDelegate(new PopupItemDelegate(ui->cbxTrans));
-    ui->cbxTrans->setContextMenuPolicy(Qt::CustomContextMenu);
-    connect(ui->cbxTrans, &QTableView::customContextMenuRequested, [this](const QPoint& pos) {
-        QMenu menu;
-        menu.addAction("Редактировать Обмотки", [this] {
-            TransDialog d(ui->cbxTrans->model());
-            connect(&d, &QDialog::accepted, [] { exit(0); });
-            d.exec(); });
-        menu.exec(ui->cbxTrans->mapToGlobal(pos));
-    });
 
     // Tested Model
     ui->tvTested->setModel(testedModel = new TestedModel(ui->tvTested));
     ui->tvTested->verticalHeader()->setSectionResizeMode(QHeaderView::ResizeToContents);
     ui->tvTested->horizontalHeader()->setSectionResizeMode(QHeaderView::Stretch);
-    ui->tvTested->setContextMenuPolicy(Qt::CustomContextMenu);
-    connect(ui->tvTested, &QTableView::customContextMenuRequested, [this](const QPoint& pos) {
-        QMenu menu;
-        menu.addAction("Копировать данные", [this] {
-            QClipboard* clipboard = QGuiApplication::clipboard();
-            QString originalText = clipboard->text();
-            clipboard->setText(testedModel->toString().replace('.', ','));
-        });
-        menu.exec(ui->tvTested->viewport()->mapToGlobal(pos));
-    });
+
     // Measure Model
     ui->tvMeasured->setModel(measureModel = new MeasureModel(ui->tvMeasured));
     ui->tvMeasured->verticalHeader()->setSectionResizeMode(QHeaderView::Stretch);
@@ -144,8 +99,34 @@ MainWindow::MainWindow(QWidget* parent)
     setupUi(ui->tvMeasured->verticalHeader());
 
     connect(ui->pbCheckConnection, &QPushButton::clicked, [&]() {
-        qDebug() << MI::man()->ping(ui->cbxPortMan->currentText());
-        qDebug() << MI::scpi()->ping(ui->cbxPortI->currentText());
+        bool ok = true;
+        for (int address : { 1, 2, 3, 4 })
+            ok &= MI::man()->ping(ui->cbxPortMan->currentText(), 19200, address);
+        ui->label_5->setStyleSheet(ok ?
+                                      R"(QFrame, QLabel, QToolTip {
+border: 2px solid green;
+border-radius: 4px;
+padding: 2px;
+})"
+                                      :
+                                      R"(QFrame, QLabel, QToolTip {
+border: 2px solid red;
+border-radius: 4px;
+padding: 2px;
+})");
+        ok &= MI::scpi()->ping(ui->cbxPortI->currentText());
+        ui->label_6->setStyleSheet(ok ?
+                                      R"(QFrame, QLabel, QToolTip {
+border: 2px solid green;
+border-radius: 4px;
+padding: 2px;
+})"
+                                      :
+                                      R"(QFrame, QLabel, QToolTip {
+border: 2px solid red;
+border-radius: 4px;
+padding: 2px;
+})");
     });
 
     connect(ui->pbMeasure, &QPushButton::clicked, [&](bool checked) {
@@ -153,6 +134,7 @@ MainWindow::MainWindow(QWidget* parent)
             killTimer(m_timerId);
         m_timerId = checked ? startMeasure()
                             : stopMeasure();
+        ui->pbMeasure->setText(checked ? "Остановить измерение" : "Запустить измерение");
     });
 
     // MI connect
@@ -187,6 +169,7 @@ void MainWindow::writeSettings()
     settings.setValue("cbxPortMan", ui->cbxPortMan->currentText());
     settings.setValue("cbxPortI", ui->cbxPortI->currentText());
     settings.setValue("cbxTrans", ui->cbxTrans->currentIndex());
+    settings.setValue("splitter", ui->splitter->saveState());
     settings.endGroup();
 }
 
@@ -199,34 +182,18 @@ void MainWindow::readSettings()
     ui->cbxPortMan->setCurrentText(settings.value("cbxPortMan").toString());
     ui->cbxPortI->setCurrentText(settings.value("cbxPortI").toString());
     ui->cbxTrans->setCurrentIndex(settings.value("cbxTrans").toInt());
+    ui->splitter->restoreState(settings.value("splitter").toByteArray());
     settings.endGroup();
 }
 
 void MainWindow::addToCharts(const QVector<float>& val)
 {
-    if (val.size() == 4) {
-        static uint ctr;
-        double min = +std::numeric_limits<double>::max(),
-               max = -std::numeric_limits<double>::max();
-        for (int i = 0; i < 4; ++i) {
-            DataCount > ctr ? (chartsData[i].append(QPointF { static_cast<qreal>(ctr % DataCount), val[i] }), QPointF {})
-                            : chartsData[i][ctr % DataCount] = QPointF { static_cast<qreal>(ctr % DataCount), val[i] };
-            lineSeries[i]->replace(chartsData[i]);
-            auto [min_, max_] = std::ranges::minmax(chartsData[i], [](QPointF p1, QPointF p2) { return p1.y() < p2.y(); });
-            min = std::min(min, min_.y());
-            max = std::max(max, max_.y());
-        }
-        axisX->setRange(0, DataCount < ctr ? DataCount - 1 : ctr - 1);
-        axisY->setRange(min, max);
-        ++ctr;
-    }
+    ui->chartView->addToCharts(val);
     semMan.acquire(semMan.available());
-    //m.unlock();
 }
 
 void MainWindow::setCurrent(double val)
 {
-    qDebug() << __FUNCTION__;
     ui->dsbxCurrentIn->setValue(val);
     semScpi.acquire(semScpi.available());
 }
@@ -234,9 +201,9 @@ void MainWindow::setCurrent(double val)
 int MainWindow::startMeasure()
 {
     semMan.release();
-    emit getVoltage();
     semScpi.release();
     emit getCurrentI();
+    emit getVoltage();
     return startTimer(10);
 }
 
@@ -255,7 +222,7 @@ void MainWindow::timerEvent(QTimerEvent* event)
 {
     if (event->timerId() == m_timerId && /* m.tryLock()*/ !semMan.available()) {
         semMan.release();
-        emit getVoltage({ 1 });
+        emit getVoltage();
     }
     if (event->timerId() == m_timerId && /* m.tryLock()*/ !semScpi.available()) {
         semScpi.release();
@@ -275,7 +242,8 @@ void MainWindow::on_cbxTrans_currentIndexChanged(int index)
 
 void MainWindow::on_pbClear_clicked()
 {
-    testedModel->clear();
+    if (QMessageBox::question(this, "", "", QMessageBox::No, QMessageBox::Yes) == QMessageBox::Yes)
+        testedModel->clear();
 }
 
 void MainWindow::on_pbWrite_clicked()
@@ -283,4 +251,18 @@ void MainWindow::on_pbWrite_clicked()
     testedModel->addFromMM(measureModel, ui->chbxSetPointLoad->isChecked());
     testedModel->setCurrent(ui->dsbxCurrentIn->value());
     ui->tvTested->selectRow(testedModel->last());
+}
+
+void MainWindow::on_pbTransList_clicked()
+{
+    TransDialog d(ui->cbxTrans->model());
+    connect(&d, &QDialog::accepted, [] { exit(0); });
+    d.exec();
+}
+
+void MainWindow::on_pbCopy_clicked()
+{
+    QClipboard* clipboard = QGuiApplication::clipboard();
+    QString originalText = clipboard->text();
+    clipboard->setText(testedModel->toString().replace('.', ','));
 }

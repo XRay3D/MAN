@@ -6,9 +6,9 @@
 
 QT       += core gui serialport sql widgets charts
 
-include(../elemer_ascii/elemer_ascii.pri)
-include(../Agilent34401/Agilent34401.pri)
-include(../CommonInterfaces/CommonInterfaces.pri)
+include(../../CommonInterfaces/CommonInterfaces.pri)
+include(../../Meters/Agilent34401/Agilent34401.pri)
+include(../ElemerDevice/ElemerDevice.pri)
 
 DESTDIR = $$_PRO_FILE_PWD_/bin
 
@@ -21,12 +21,14 @@ TEMPLATE = app
 QMAKE_CXXFLAGS += /std:c++latest
 QMAKE_CXXFLAGS += /await
 DEFINES += __cpp_lib_coroutine
+DEFINES += EL_LOG
 
 INCLUDEPATH += ../../magic_get/include
 INCLUDEPATH += C:/local/boost_1_71_0
 #INCLUDEPATH += ../Elemer_ASCII/
 
 SOURCES += \
+    chartview.cpp \
     hwi/interface.cpp \
     hwi/man.cpp \
     main.cpp\
@@ -39,6 +41,7 @@ SOURCES += \
 
 
 HEADERS += \
+    chartview.h \
     hwi/common_interfaces.h \
     hwi/interface.h \
     hwi/man.h \
